@@ -1,22 +1,46 @@
 """
 deploy_qaoa_v2.py — Register QAOA MaxCut v2 on Prefect Cloud
-=============================================================
-Parameters exposed in the Prefect UI:
-  - num_nodes:        Graph size (default 5)
-  - node_coordinates: 2D positions — must match num_nodes
-  - error_mitigation: none | zne | readout | dd | all
-  - num_iterations:   Optimization iterations
-  - shots:            Measurement shots
-  - qaoa_depth:       QAOA circuit depth p
 """
 
+import math
+import random
 from prefect import flow
 
 
-GITHUB_REPO = "https://github.com/PlayfulDevBit/qaoa-v2.git"  # ← CHANGE THIS
+GITHUB_REPO = "https://github.com/YOUR_USER/YOUR_REPO.git"  # ← CHANGE THIS
+
+
+def _default_coordinates(n):
+    return [
+        [round(4.0 * math.cos(2 * math.pi * i / n), 2),
+         round(4.0 * math.sin(2 * math.pi * i / n), 2)]
+        for i in range(n)
+    ]
+
+
+def _default_edges(n, probability=0.6, seed=42):
+    rng = random.Random(seed)
+    edges = []
+    for i in range(n):
+        for j in range(i + 1, n):
+            if rng.random() < probability:
+                edges.append([i, j])
+    connected = set()
+    for e in edges:
+        connected.add(e[0])
+        connected.add(e[1])
+    for i in range(n):
+        if i not in connected:
+            edges.append([i, (i + 1) % n])
+            connected.add(i)
+    return edges
 
 
 if __name__ == "__main__":
+    n = 5
+    coords = _default_coordinates(n)
+    edges = _default_edges(n)
+
     flow.from_source(
         source=GITHUB_REPO,
         entrypoint="qaoa_pipeline_v2.py:qaoa_pipeline_v2",
@@ -27,50 +51,36 @@ if __name__ == "__main__":
             "pip_packages": [
                 "qiskit==2.1.2",
                 "iqm-client[qiskit]==33.0.5",
-                "matplotlib",
                 "networkx",
-                "mitiq",
-                "mthree",
+                "numpy",
             ]
         },
         parameters={
-            # ── Graph defaults (user can override at run time) ──
-            "num_nodes": 5,
-            "node_coordinates": [
-                [0.0, 4.0],
-                [3.8, 1.2],
-                [2.4, -3.2],
-                [-2.4, -3.2],
-                [-3.8, 1.2],
-            ],
-            # ── Error mitigation ──
+            "num_nodes": n,
+            "node_coordinates": coords,
+            "edge_list": edges,
             "error_mitigation": "none",
-            # ── QAOA parameters ──
             "num_iterations": 6,
             "shots": 4096,
             "qaoa_depth": 1,
         },
-        tags=["quantum", "iqm-garnet", "qaoa", "maxcut", "v2", "mitigation"],
+        tags=["quantum", "iqm-garnet", "qaoa", "maxcut", "v2"],
     )
 
-    print("✅ QAOA MaxCut v2 deployment registered!")
+    print("✅ QAOA MaxCut v2 deployed!")
     print()
-    print("Parameters visible in Prefect UI:")
-    print("  num_nodes ........... 5       (change graph size)")
-    print("  node_coordinates .... [5 pts] (change node positions)")
-    print("  error_mitigation .... none    (none|zne|readout|dd|all)")
-    print("  num_iterations ...... 6       (optimization steps)")
-    print("  shots ............... 4096    (measurement shots)")
-    print("  qaoa_depth .......... 1       (QAOA p layers)")
+    print("Default graph:")
+    print(f"  Nodes: {n}")
+    print(f"  Coordinates: {coords}")
+    print(f"  Edges: {edges}")
     print()
-    print("⚠️  If you change num_nodes, you MUST also change node_coordinates")
-    print("   to have the same number of [x,y] pairs — the pipeline validates this.")
+    print("Override at run time (Custom Run → JSON):")
+    print('  {')
+    print('    "num_nodes": 4,')
+    print('    "node_coordinates": [[0,0], [2,0], [2,2], [0,2]],')
+    print('    "edge_list": [[0,1], [1,2], [2,3], [0,3], [0,2]],')
+    print('    "error_mitigation": "zne"')
+    print('  }')
     print()
-    print("Run with:")
-    print('  prefect deployment run "QAOA MaxCut v2 · IQM Garnet/qaoa-maxcut-v2-garnet"')
-    print()
-    print("Override example (CLI):")
-    print('  prefect deployment run "QAOA MaxCut v2 · IQM Garnet/qaoa-maxcut-v2-garnet" \\')
-    print('    --param num_nodes=3 \\')
-    print('    --param \'node_coordinates=[[0,0],[2,0],[1,1.7]]\' \\')
-    print('    --param error_mitigation=zne')
+    print("⚠️  num_nodes must match len(node_coordinates)")
+    print("⚠️  All node indices in edge_list must be < num_nodes")
