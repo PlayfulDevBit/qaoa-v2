@@ -13,7 +13,7 @@ Parameters exposed in the Prefect UI:
 from prefect import flow
 
 
-GITHUB_REPO = "https://github.com/YOUR_USER/YOUR_REPO.git"  # ← CHANGE THIS
+GITHUB_REPO = "https://github.com/PlayfulDevBit/qaoa-v2.git"  # ← CHANGE THIS
 
 
 if __name__ == "__main__":
