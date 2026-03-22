@@ -284,23 +284,41 @@ def build_qaoa_circuit(
 )
 def transpile_for_garnet(circuit_meta: dict, error_mitigation: str) -> dict:
     """
-    Transpile to IQM Garnet native gate set.
+    Transpile to IQM Garnet using the actual backend so Qiskit knows the
+    physical coupling map (which qubit pairs support CZ gates).
     If dynamical decoupling (dd) is selected, insert DD sequences after transpilation.
     """
     logger = get_run_logger()
     from qiskit import transpile as qk_transpile
-    from qiskit.circuit import QuantumCircuit
+    import os
 
     qc = circuit_meta["_circuit_obj"]
 
-    # IQM Garnet native basis gates
-    basis_gates = ["r", "cz", "measure"]
+    # ── Get the real IQM Garnet backend for its coupling map ──
+    token = get_iqm_token()
+    if not token:
+        raise RuntimeError(
+            "No IQM token found. Create a Prefect Secret block named "
+            "'iqm-resonance-token' with your IQM Resonance API token."
+        )
+    os.environ["IQM_TOKEN"] = token
+
+    from iqm.qiskit_iqm import IQMProvider
+
+    provider = IQMProvider("https://cocos.resonance.meetiqm.com/garnet")
+    backend = provider.get_backend()
+
+    # Transpile against the real backend — this ensures:
+    #   - Native gate set (r, cz)
+    #   - Coupling map constraints (only physically connected qubit pairs)
+    #   - Qubit routing/swaps inserted where needed
     transpiled = qk_transpile(
         qc,
-        basis_gates=basis_gates,
+        backend=backend,
         optimization_level=2,
         seed_transpiler=42,
     )
+    logger.info(f"  Transpiled against IQM Garnet backend (coupling map respected)")
 
     # ── Dynamical Decoupling insertion ──
     dd_applied = False
