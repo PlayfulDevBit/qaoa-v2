@@ -7,7 +7,7 @@ import random
 from prefect import flow
 
 
-GITHUB_REPO = "https://github.com/YOUR_USER/YOUR_REPO.git"  # ← CHANGE THIS
+GITHUB_REPO = "https://github.com/PlayfulDevBit/qaoa-v2.git"  # ← CHANGE THIS
 
 
 def _default_coordinates(n):
